@@ -1,0 +1,5 @@
+:local email "email@domain.com"
+
+/system backup save name=email_backup
+/tool e-mail send file=email_backup.backup to="$email" body="See attached file" \
+   subject="$[/system identity get name] $[/system clock get time] $[/system clock get date] Backup"
