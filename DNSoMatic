@@ -1,0 +1,46 @@
+# DNSoMatic automatic DNS updates
+
+#--------------- Change Values in this section to match your setup ------------------
+
+# User account info of DNSoMatic
+
+:local maticuser "user"
+:local maticpass "pass"
+
+# Replace the value in the quotations below with your host names.
+# To specify multiple hosts, separate them with commas. 
+# Use "all.dnsomatic.com" for the matichost to update all items in dnsomatic with this IP.
+
+:local matichost "all.dnsomatic.com"
+
+#------------------------------------------------------------------------------------
+
+# No more changes need
+
+:global previousIP;
+
+:log info "Fetching current IP"
+
+# Get the current public IP using DNS-O-Matic service.
+/tool fetch url="http://myip.dnsomatic.com/" mode=http dst-path=mypublicip.txt
+
+# Read the current public IP into the currentIP variable.
+:local currentIP [/file get mypublicip.txt contents]
+
+:log info "Fetched current IP as $currentIP"
+    
+:if ($currentIP != $previousIP) do={
+    :log info "DNSoMatic: Update needed"
+    :set previousIP $currentIP
+    
+    :local url "http://updates.dnsomatic.com/nic/update\3Fmyip=$currentIP&wildcard=NOCHG&mx=NOCHG&backmx=NOCHG"
+    :local matichostarray;
+    :set matichostarray [:toarray $matichost];
+    :foreach host in=$matichostarray do={
+        :log info "DNSoMatic: Sending update for $host"
+        /tool fetch url=($url . "&hostname=$host") user=$maticuser password=$maticpass mode=http dst-path=("dnsomaticupdate-" . $host . ".txt")
+        :log info "DNSoMatic: Host $host updated on DNSoMatic with IP $currentIP"
+    }
+}  else={
+    :log info "DNSoMatic: Previous IP $previousIP and current IP equal, no update need"
+}
