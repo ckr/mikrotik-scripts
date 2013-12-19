@@ -1,0 +1,48 @@
+# Joker.com automatic DNS updates
+
+#--------------- Change Values in this section to match your setup ------------------
+
+# User account info of Joker.com
+
+:local jusername "user"
+:local jpassword "pass"
+:local jhostname "domain.com"
+:local jemail "email@domain.com"
+
+#Set below to true to force change every time
+:local dnsForce false
+
+#------------------------------------------------------------------------------------
+
+# No more changes need
+
+:global previousIP
+:log info ("Joker: Previous IP $previousIP")
+
+:local resolvedIP [:resolve $jhostname]
+:log info ("Joker: Resolved IP $resolvedIP")
+
+:log info ("Joker: Fetching current IP")
+# Get the current public IP using Joker service.
+/tool fetch mode=http address="svc.joker.com" src-path="/nic/checkip" dst-path="/joker.publicip.html"
+:local result [/file get joker.publicip.html contents]
+
+# parse the current IP result
+:local resultLen [:len $result]
+:local startLoc [:find $result ": " -1]
+:set startLoc ($startLoc + 2)
+:local endLoc [:find $result "</body>" -1]
+:local currentIP [:pick $result $startLoc $endLoc]
+
+:log info ("Joker: Fetched current IP as $currentIP")
+
+:if (($currentIP != $resolvedIP) || ($dnsForce = true)) do={
+    :log info ("Joker: Update needed")
+    :set previousIP $currentIP
+    :local url "http://svc.joker.com/nic/update\3Fusername=$jusername&password=$jpassword&hostname=$jhostname&myip=$currentIP&wildcard=NOCHG&mx=NOCHG&backmx=NOCHG"
+    /tool fetch url=($url) mode=http dst-path=("joker-" . $jhostname . ".txt")
+    :log info ("Joker: Host $jhostname updated on Joker with IP $currentIP")
+    /tool e-mail send to="$jemail" body="Joker: Host $jhostname updated on Joker with IP $currentIP" subject="$[/system identity get name] $[/system clock get time] $[/system clock get date] $jhostname IP Update"
+} else= {
+    :log info ("Joker: resolved IP $resolvedIP and current IP equal, no update need")
+}
